@@ -6,80 +6,45 @@ output: html_document
 ---
 
 ```{r}
-# load twitter library - the rtweet library is recommended now over twitteR
 library(rtweet)
-library(tidyverse)
-# text mining library
-library(tidytext)
 ```
 
-
-
 ```{r}
-## get user IDs of accounts followed by CNN
-tmls <- get_timelines(c("cnn", "BBCWorld", "foxnews"), n = 300)
-
-## plot the frequency of tweets for each user over time
-tmls %>%
-  dplyr::filter(created_at > "2017-10-29") %>%
-  dplyr::group_by(screen_name) %>%
-  ts_plot("days", trim = 1L) +
-  ggplot2::geom_point() +
-  ggplot2::theme_minimal() +
-  ggplot2::theme(
-    legend.title = ggplot2::element_blank(),
-    legend.position = "bottom",
-    plot.title = ggplot2::element_text(face = "bold")) +
-  ggplot2::labs(
-    x = NULL, y = NULL,
-    title = "Frequency of Twitter statuses posted by news organization",
-    subtitle = "Twitter status (tweet) counts aggregated by day from October/November 2017",
-    caption = "\nSource: Data collected from Twitter's REST API via rtweet"
-  )
+tweets = get_timelines(c("cnn", "BBCWorld", "foxnews"), n = 10000, retryonratelimit = TRUE)
 ```
 
 
 ```{r}
-tmls = get_timelines(c("cnn"), n = 10000)
-
-tmls_tokens = tmls %>% 
-  dplyr::select(text, status_id, created_at, screen_name) %>% 
-  unnest_tokens(word, text)
+saveRDS(tweets, file = "data/tweets_cnn_bbc_fox.rds")
 ```
 
 
 ```{r}
-tmls_sentiments = tmls_tokens %>% 
-  inner_join(get_sentiments("afinn"), by = "word")
+# tweets = read_rds("data/tweets_cnn_bbc_fox.rds")
 
-library(lubridate)
+g_raw = googleLanguageR::gl_nlp(tweets$text, 
+                                nlp_type = "analyzeSentiment", 
+                                language = "en")
 
-tmls_sentiments %>% 
-  dplyr::filter(screen_name == "CNN") %>% 
-  group_by(status_id, screen_name, created_at) %>% 
-  summarise(total_value = sum(value)) %>% 
-  ggplot(aes(x = created_at, y = total_value, colour = screen_name)) +
-  geom_path()
+saveRDS(g_raw, file = "data/g_raw_cnn_bbc_fox.rds")
+
+g_sentiments = tibble(text = g_raw$text, 
+                      screen_name = tweets$screen_name,
+                      created_at = tweets$created_at,
+                      status_id = tweets$status_id,
+                      g_raw$documentSentiment)
+
+saveRDS(g_sentiments, file = "data/g_sentiments_cnn_bbc_fox.rds")
+
+
+library(sentimentr)
+library(furrr)
+plan(multisession, workers = 5)
+
+r_sentiment = g_sentiments %>% 
+  dplyr::mutate(
+    r_sent = furrr::future_map_dbl(text, ~ sentiment_by(.x)$ave_sentiment)
+    )
+
+saveRDS(r_sentiment, file = "data/r_sentiments_cnn_bbc_fox.rds")
 ```
-
-```{r}
-tmls_sentiments = tmls_tokens %>% 
-  inner_join(get_sentiments("nrc"), by = "word")
-
-# tmls_sentiments %>% 
-#   dplyr::filter(screen_name == "CNN") %>% 
-#   group_by(status_id, screen_name, day = day(created_at), sentiment) %>% 
-#   tally() %>% 
-#   mutate(perc = n/sum(n)) %>% 
-#   ggplot(aes(x = created_at, y = perc, colour = sentiment)) +
-#   geom_col()
-```
-
-
-
-```{r}
-# get_sentiments("afinn")
-# get_sentiments("bing")
-# get_sentiments("nrc")
-```
-

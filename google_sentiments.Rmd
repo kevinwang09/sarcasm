@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+author: "Kevin Wang"
+date: "13/04/2020"
+output: html_document
+---
+
+```{r}
+library(googleLanguageR)
+library(tidyverse)
+library(lubridate)
+```
+
+
+
+<!-- ```{r} -->
+<!-- tmls_sentiments = tmls_tokens %>%  -->
+<!--   inner_join(get_sentiments("afinn"), by = "word") -->
+
+<!-- library(lubridate) -->
+
+<!-- tmls_sentiments %>%  -->
+<!--   dplyr::filter(screen_name == "CNN") %>%  -->
+<!--   group_by(status_id, screen_name, created_at) %>%  -->
+<!--   summarise(total_value = sum(value)) %>%  -->
+<!--   ggplot(aes(x = created_at, y = total_value, colour = screen_name)) + -->
+<!--   geom_path() -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- tmls_sentiments = tmls_tokens %>%  -->
+<!--   inner_join(get_sentiments("nrc"), by = "word") -->
+
+<!-- tmls_sentiments %>% -->
+<!--   dplyr::filter(screen_name == "CNN") %>% -->
+<!--   group_by(status_id, screen_name, created_at, sentiment) %>% -->
+<!--   tally() %>% -->
+<!--   mutate(perc = n/sum(n)) %>% -->
+<!--   ggplot(aes(x = created_at, y = perc, colour = sentiment)) + -->
+<!--   geom_col() -->
+<!-- ``` -->
+
+
+
+```{r}
+g_sentiments = read_rds("data/g_sentiments_cnn_bbc_fox.rds")
+```
+
+
+```{r}
+g_sentiments %>% 
+  dplyr::filter(year(created_at) == 2020) %>% 
+  ggplot(aes(x = created_at, y = score,
+             colour = screen_name)) +
+  geom_line()
+
+
+g_sentiments %>% 
+  dplyr::filter(year(created_at) == 2020,
+                str_detect(tolower(text), "covid|virus|coronavirus")) %>% 
+  ggplot(aes(x = created_at, y = abs(score),
+             colour = screen_name)) +
+  geom_line(alpha = 0.5) +
+  geom_smooth(method = "loess")
+
+g_sentiments %>% 
+  dplyr::filter(year(created_at) == 2020,
+                str_detect(tolower(text), "covid|virus|coronavirus")) %>% 
+  ggplot(aes(x = created_at, y = magnitude,
+             colour = screen_name)) +
+  geom_line(alpha = 0.5) +
+  geom_smooth(method = "loess")
+```
+
+
+```{r}
+r_sentiment = read_rds("data/r_sentiments_cnn_bbc_fox.rds")
+
+p = r_sentiment %>% 
+  dplyr::mutate(corona = str_detect(tolower(text), "covid|virus|coronavirus")) %>% 
+  ggplot(aes(x = score, y = r_sent, text = text,
+             colour = corona, group = corona)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggpubr::stat_cor() +
+  facet_wrap(~screen_name)
+
+p
+
+library(plotly)
+ggplotly(p)
+```
+
