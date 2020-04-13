@@ -1,0 +1,85 @@
+---
+title: "Extracting data"
+author: "Kevin Wang"
+date: "13/04/2020"
+output: html_document
+---
+
+```{r}
+# load twitter library - the rtweet library is recommended now over twitteR
+library(rtweet)
+library(tidyverse)
+# text mining library
+library(tidytext)
+```
+
+
+
+```{r}
+## get user IDs of accounts followed by CNN
+tmls <- get_timelines(c("cnn", "BBCWorld", "foxnews"), n = 300)
+
+## plot the frequency of tweets for each user over time
+tmls %>%
+  dplyr::filter(created_at > "2017-10-29") %>%
+  dplyr::group_by(screen_name) %>%
+  ts_plot("days", trim = 1L) +
+  ggplot2::geom_point() +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.title = ggplot2::element_blank(),
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Frequency of Twitter statuses posted by news organization",
+    subtitle = "Twitter status (tweet) counts aggregated by day from October/November 2017",
+    caption = "\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+```
+
+
+```{r}
+tmls = get_timelines(c("cnn"), n = 10000)
+
+tmls_tokens = tmls %>% 
+  dplyr::select(text, status_id, created_at, screen_name) %>% 
+  unnest_tokens(word, text)
+```
+
+
+```{r}
+tmls_sentiments = tmls_tokens %>% 
+  inner_join(get_sentiments("afinn"), by = "word")
+
+library(lubridate)
+
+tmls_sentiments %>% 
+  dplyr::filter(screen_name == "CNN") %>% 
+  group_by(status_id, screen_name, created_at) %>% 
+  summarise(total_value = sum(value)) %>% 
+  ggplot(aes(x = created_at, y = total_value, colour = screen_name)) +
+  geom_path()
+```
+
+```{r}
+tmls_sentiments = tmls_tokens %>% 
+  inner_join(get_sentiments("nrc"), by = "word")
+
+# tmls_sentiments %>% 
+#   dplyr::filter(screen_name == "CNN") %>% 
+#   group_by(status_id, screen_name, day = day(created_at), sentiment) %>% 
+#   tally() %>% 
+#   mutate(perc = n/sum(n)) %>% 
+#   ggplot(aes(x = created_at, y = perc, colour = sentiment)) +
+#   geom_col()
+```
+
+
+
+```{r}
+# get_sentiments("afinn")
+# get_sentiments("bing")
+# get_sentiments("nrc")
+```
+
